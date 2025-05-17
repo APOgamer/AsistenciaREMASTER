@@ -23,9 +23,11 @@
             <nav>
                 <button id="profile-btn">Mi Perfil</button>
                 <button id="create-aux-btn" class="admin-only hidden">Crear Auxiliar</button>
-                <button id="upload-lists-btn" class="staff-only hidden">Subir Listas Excel</button>
+                <button id="upload-lists-btn" class="hidden">Subir Listas Excel</button>
+                <button id="upload-attendance-btn" class="hidden">Subir Asistencia Huellero</button>
                 <button id="view-students-btn" class="aux-only hidden">Ver Alumnos</button>
                 <button id="view-users-btn" class="admin-only hidden">Ver Usuarios</button>
+                <button id="view-attendance-btn" class="hidden">Ver Asistencias</button>
                 <button id="logout-btn">Cerrar Sesión</button>
             </nav>
 
@@ -100,12 +102,42 @@
                 </div>
             </div>
 
+            <!-- Upload Attendance Section -->
+            <div id="upload-attendance-section" class="section hidden">
+                <h2>Subir Asistencia Huellero</h2>
+                <form id="upload-attendance-form">
+                    <div class="form-group">
+                        <label for="attendance-file">Archivo .dat:</label>
+                        <input type="file" id="attendance-file" accept=".dat" required>
+                    </div>
+                    <button type="submit">Procesar Archivo</button>
+                </form>
+                <div id="attendance-preview-section" class="hidden">
+                    <h3>Vista Previa de Asistencia</h3>
+                    <div id="attendance-filters-container"></div>
+                    <button id="save-attendance-btn" class="success-btn">Guardar Asistencia</button>
+
+                    <div id="attendance-table-container"></div>
+                </div>
+            </div>
+
             <!-- View Section -->
             <div id="view-section" class="section hidden">
                 <h2 id="view-section-title">Resultados</h2>
                 <div id="filters-container"></div>
                 <input type="text" id="search-input" placeholder="Buscar..." style="margin: 10px 0; width: 100%; max-width: 350px;">
                 <div id="table-container"></div>
+            </div>
+
+            <!-- View Attendance Section -->
+            <div id="view-attendance-section" class="section hidden">
+                <h2>Ver Asistencias</h2>
+                <div id="attendance-dates-list"></div>
+                <div id="attendance-detail-section" class="hidden">
+                    <h3 id="attendance-detail-title"></h3>
+                    <div id="attendance-detail-table-container"></div>
+                    <button id="save-attendance-edit-btn" class="success-btn hidden">Guardar Cambios</button>
+                </div>
             </div>
         </div>
     </div>
