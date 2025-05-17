@@ -153,10 +153,17 @@ router.patch('/:id', auth, async (req, res) => {
     }
 });
 
-// Obtener todos los usuarios (solo admin)
-router.get('/', auth, adminAuth, async (req, res) => {
+// Obtener todos los usuarios (admin ve todos, auxiliar solo alumnos)
+router.get('/', auth, async (req, res) => {
     try {
-        const users = await User.find({});
+        let users;
+        if (req.user.role === 'admin') {
+            users = await User.find({});
+        } else if (req.user.role === 'auxiliar') {
+            users = await User.find({ role: 'alumno' });
+        } else {
+            return res.status(403).json({ error: 'No autorizado' });
+        }
         res.json(users);
     } catch (error) {
         res.status(500).json({ error: error.message });

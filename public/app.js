@@ -15,12 +15,22 @@ const uploadListsForm = document.getElementById('upload-lists-form');
 const previewSection = document.getElementById('preview-section');
 const previewTables = document.getElementById('preview-tables');
 const saveStudentsBtn = document.getElementById('save-students-btn');
+const viewSection = document.getElementById('view-section');
+const viewSectionTitle = document.getElementById('view-section-title');
+const filtersContainer = document.getElementById('filters-container');
+const tableContainer = document.getElementById('table-container');
+const searchInput = document.getElementById('search-input');
+const viewStudentsBtn = document.getElementById('view-students-btn');
+const viewUsersBtn = document.getElementById('view-users-btn');
 
 // Estado de la aplicación
 let currentUser = null;
 let token = null;
 let excelProcessor = new ExcelProcessor();
 let processedStudents = [];
+let allData = [];
+let filteredData = [];
+let currentView = '';
 
 // Funciones de utilidad
 function showToast(message, type = 'info') {
@@ -79,20 +89,18 @@ const showLogin = () => {
 const showDashboard = () => {
     loginContainer.classList.add('hidden');
     dashboard.classList.remove('hidden');
-
-    // Ocultar todos los botones primero
     createAuxBtn.classList.add('hidden');
     uploadListsBtn.classList.add('hidden');
-
-    // Mostrar según el rol
+    viewStudentsBtn.classList.add('hidden');
+    viewUsersBtn.classList.add('hidden');
     if (currentUser.role === 'admin') {
         createAuxBtn.classList.remove('hidden');
         uploadListsBtn.classList.remove('hidden');
+        viewUsersBtn.classList.remove('hidden');
     } else if (currentUser.role === 'auxiliar') {
         uploadListsBtn.classList.remove('hidden');
+        viewStudentsBtn.classList.remove('hidden');
     }
-
-    // Cargar datos del perfil
     loadProfile();
 };
 
@@ -124,18 +132,21 @@ profileBtn.addEventListener('click', () => {
     profileSection.classList.remove('hidden');
     createAuxSection.classList.add('hidden');
     uploadListsSection.classList.add('hidden');
+    viewSection.classList.add('hidden');
 });
 
 createAuxBtn.addEventListener('click', () => {
     profileSection.classList.add('hidden');
     createAuxSection.classList.remove('hidden');
     uploadListsSection.classList.add('hidden');
+    viewSection.classList.add('hidden');
 });
 
 uploadListsBtn.addEventListener('click', () => {
     profileSection.classList.add('hidden');
     createAuxSection.classList.add('hidden');
     uploadListsSection.classList.remove('hidden');
+    viewSection.classList.add('hidden');
 });
 
 logoutBtn.addEventListener('click', logout);
@@ -245,6 +256,106 @@ saveStudentsBtn.addEventListener('click', async () => {
         showError(error.message);
     }
 });
+
+// Navegación
+viewStudentsBtn.addEventListener('click', () => {
+    profileSection.classList.add('hidden');
+    createAuxSection.classList.add('hidden');
+    uploadListsSection.classList.add('hidden');
+    viewSection.classList.remove('hidden');
+    viewSectionTitle.textContent = 'Alumnos';
+    currentView = 'alumnos';
+    fetchAndRenderTable('alumno');
+});
+
+viewUsersBtn.addEventListener('click', () => {
+    profileSection.classList.add('hidden');
+    createAuxSection.classList.add('hidden');
+    uploadListsSection.classList.add('hidden');
+    viewSection.classList.remove('hidden');
+    viewSectionTitle.textContent = 'Usuarios';
+    currentView = 'usuarios';
+    fetchAndRenderTable();
+});
+
+// Fetch y renderizado de tabla
+async function fetchAndRenderTable(roleFilter) {
+    try {
+        const response = await fetch('/api/users', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) throw new Error('No se pudieron obtener los datos');
+        let data = await response.json();
+        if (roleFilter) data = data.filter(u => u.role === roleFilter);
+        allData = data;
+        filteredData = data;
+        renderFilters(data);
+        renderTable(data);
+    } catch (error) {
+        showError(error.message);
+        tableContainer.innerHTML = '';
+        filtersContainer.innerHTML = '';
+    }
+}
+
+// Renderizar filtros
+function renderFilters(data) {
+    filtersContainer.innerHTML = '';
+    if (!data.length) return;
+    const keys = Object.keys(data[0]).filter(k => !['_id','password','__v','createdAt'].includes(k));
+    keys.forEach(key => {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.placeholder = `Filtrar por ${key}`;
+        input.className = 'filter-input';
+        input.style.marginRight = '8px';
+        input.addEventListener('input', () => {
+            applyFilters();
+        });
+        input.dataset.key = key;
+        filtersContainer.appendChild(input);
+    });
+}
+
+// Aplicar filtros y búsqueda
+function applyFilters() {
+    const filterInputs = filtersContainer.querySelectorAll('.filter-input');
+    filteredData = allData.filter(row => {
+        return Array.from(filterInputs).every(input => {
+            const key = input.dataset.key;
+            return String(row[key] || '').toLowerCase().includes(input.value.toLowerCase());
+        });
+    }).filter(row => {
+        const search = searchInput.value.toLowerCase();
+        return !search || Object.values(row).some(val => String(val).toLowerCase().includes(search));
+    });
+    renderTable(filteredData);
+}
+
+searchInput.addEventListener('input', applyFilters);
+
+// Renderizar tabla
+function renderTable(data) {
+    if (!data.length) {
+        tableContainer.innerHTML = '<div style="padding:20px; text-align:center; color:#888;">No hay datos para mostrar.</div>';
+        return;
+    }
+    const keys = Object.keys(data[0]).filter(k => !['_id','password','__v','createdAt'].includes(k));
+    let html = '<div style="overflow-x:auto;"><table class="preview-table"><thead><tr>';
+    keys.forEach(k => {
+        html += `<th>${k.charAt(0).toUpperCase() + k.slice(1)}</th>`;
+    });
+    html += '</tr></thead><tbody>';
+    data.forEach(row => {
+        html += '<tr>';
+        keys.forEach(k => {
+            html += `<td>${row[k] ?? ''}</td>`;
+        });
+        html += '</tr>';
+    });
+    html += '</tbody></table></div>';
+    tableContainer.innerHTML = html;
+}
 
 // Verificar si hay un token guardado al cargar la página
 const savedToken = localStorage.getItem('token');

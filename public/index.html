@@ -24,6 +24,8 @@
                 <button id="profile-btn">Mi Perfil</button>
                 <button id="create-aux-btn" class="admin-only hidden">Crear Auxiliar</button>
                 <button id="upload-lists-btn" class="staff-only hidden">Subir Listas Excel</button>
+                <button id="view-students-btn" class="aux-only hidden">Ver Alumnos</button>
+                <button id="view-users-btn" class="admin-only hidden">Ver Usuarios</button>
                 <button id="logout-btn">Cerrar Sesión</button>
             </nav>
 
@@ -96,6 +98,14 @@
                     <div id="preview-tables"></div>
                     <button id="save-students-btn" class="success-btn">Guardar Alumnos</button>
                 </div>
+            </div>
+
+            <!-- View Section -->
+            <div id="view-section" class="section hidden">
+                <h2 id="view-section-title">Resultados</h2>
+                <div id="filters-container"></div>
+                <input type="text" id="search-input" placeholder="Buscar..." style="margin: 10px 0; width: 100%; max-width: 350px;">
+                <div id="table-container"></div>
             </div>
         </div>
     </div>

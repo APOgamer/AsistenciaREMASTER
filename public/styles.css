@@ -224,4 +224,38 @@ input[type="file"]:hover {
 }
 @keyframes toast-out {
     to { opacity: 0; transform: translateY(-20px); }
+}
+
+/* Filtros de tabla */
+#filters-container {
+    margin-bottom: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.filter-input {
+    padding: 7px 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 15px;
+    min-width: 120px;
+    background: #f8f9fa;
+    transition: border-color 0.2s;
+}
+.filter-input:focus {
+    border-color: #007bff;
+    outline: none;
+}
+#search-input {
+    margin-bottom: 10px;
+    border: 1.5px solid #007bff;
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 15px;
+    background: #f8f9fa;
+    width: 100%;
+    max-width: 350px;
+}
+#table-container {
+    margin-top: 10px;
 } 
