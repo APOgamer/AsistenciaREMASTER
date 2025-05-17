@@ -23,21 +23,20 @@ let excelProcessor = new ExcelProcessor();
 let processedStudents = [];
 
 // Funciones de utilidad
-const showError = (message) => {
-    const errorDiv = document.createElement('div');
-    errorDiv.className = 'error';
-    errorDiv.textContent = message;
-    document.querySelector('.container').appendChild(errorDiv);
-    setTimeout(() => errorDiv.remove(), 3000);
-};
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+}
 
-const showSuccess = (message) => {
-    const successDiv = document.createElement('div');
-    successDiv.className = 'success';
-    successDiv.textContent = message;
-    document.querySelector('.container').appendChild(successDiv);
-    setTimeout(() => successDiv.remove(), 3000);
-};
+const showError = (message) => showToast(message, 'error');
+const showSuccess = (message) => showToast(message, 'success');
+const showInfo = (message) => showToast(message, 'info');
 
 // Funciones de autenticación
 const login = async (username, password) => {
