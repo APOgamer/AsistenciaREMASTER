@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Asistencia</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Login Form -->
+        <div id="login-container" class="container">
+            <h2>Iniciar Sesión</h2>
+            <form id="login-form">
+                <input type="text" id="username" placeholder="Usuario" required>
+                <input type="password" id="password" placeholder="Contraseña" required>
+                <button type="submit">Ingresar</button>
+            </form>
+        </div>
+
+        <!-- Dashboard -->
+        <div id="dashboard" class="container hidden">
+            <nav>
+                <button id="profile-btn">Mi Perfil</button>
+                <button id="create-aux-btn" class="admin-only hidden">Crear Auxiliar</button>
+                <button id="upload-lists-btn" class="staff-only hidden">Subir Listas Excel</button>
+                <button id="logout-btn">Cerrar Sesión</button>
+            </nav>
+
+            <!-- Profile Section -->
+            <div id="profile-section" class="section">
+                <h2>Mi Perfil</h2>
+                <form id="profile-form">
+                    <div class="form-group">
+                        <label for="profile-name">Nombre:</label>
+                        <input type="text" id="profile-name" placeholder="Nombre" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="profile-email">Email:</label>
+                        <input type="email" id="profile-email" placeholder="Email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="profile-telefono">Teléfono:</label>
+                        <input type="tel" id="profile-telefono" placeholder="Teléfono">
+                    </div>
+                    <div class="form-group">
+                        <label for="profile-password">Nueva Contraseña:</label>
+                        <input type="password" id="profile-password" placeholder="Dejar en blanco para mantener la actual">
+                    </div>
+                    <button type="submit">Actualizar Perfil</button>
+                </form>
+            </div>
+
+            <!-- Create Auxiliar Section -->
+            <div id="create-aux-section" class="section hidden">
+                <h2>Crear Usuario Auxiliar</h2>
+                <form id="create-aux-form">
+                    <div class="form-group">
+                        <label for="aux-username">Usuario:</label>
+                        <input type="text" id="aux-username" placeholder="Usuario" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="aux-password">Contraseña:</label>
+                        <input type="password" id="aux-password" placeholder="Contraseña" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="aux-name">Nombre:</label>
+                        <input type="text" id="aux-name" placeholder="Nombre" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="aux-email">Email:</label>
+                        <input type="email" id="aux-email" placeholder="Email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="aux-telefono">Teléfono:</label>
+                        <input type="tel" id="aux-telefono" placeholder="Teléfono (opcional)">
+                    </div>
+                    <button type="submit">Crear Auxiliar</button>
+                </form>
+            </div>
+
+            <!-- Upload Lists Section -->
+            <div id="upload-lists-section" class="section hidden">
+                <h2>Subir Listas Excel</h2>
+                <form id="upload-lists-form">
+                    <div class="form-group">
+                        <label for="excel-file">Archivo Excel:</label>
+                        <input type="file" id="excel-file" accept=".xlsx, .xls" required>
+                    </div>
+                    <button type="submit">Procesar Archivo</button>
+                </form>
+
+                <!-- Preview Section -->
+                <div id="preview-section" class="hidden">
+                    <h3>Vista Previa de Datos</h3>
+                    <div id="preview-tables"></div>
+                    <button id="save-students-btn" class="success-btn">Guardar Alumnos</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html> 

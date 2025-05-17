@@ -1,0 +1,13 @@
+{
+    "turnos": {
+      "mañana": {
+        "hora_puntual": "07:30",
+        "llegar_tarde_desde": "07:31"
+      },
+      "tarde": {
+        "hora_puntual": "13:10",
+        "llegar_tarde_desde": "13:11"
+      }
+    }
+  }
+  
