@@ -106,6 +106,7 @@ class ExcelProcessor {
                                 <th>Código</th>
                                 <th>Nombre Completo</th>
                                 <th>Email</th>
+                                <th>Contraseña</th>
                                 <th>Teléfono</th>
                             </tr>
                         </thead>
@@ -116,6 +117,7 @@ class ExcelProcessor {
                                     <td>${student.codigo}</td>
                                     <td>${student.nombreCompleto}</td>
                                     <td>${student.email}</td>
+                                    <td>${student.password}</td>
                                     <td>${student.telefono}</td>
                                 </tr>
                             `).join('')}
