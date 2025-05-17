@@ -245,11 +245,20 @@ saveStudentsBtn.addEventListener('click', async () => {
             body: JSON.stringify(processedStudents)
         });
         
+        const result = await response.json();
         if (!response.ok) {
-            throw new Error('Error al guardar los estudiantes');
+            throw new Error(result.error || 'Error al guardar los estudiantes');
         }
-        
-        showSuccess('Estudiantes guardados correctamente');
+        // Mostrar mensajes según el resultado
+        if (result.errors && result.errors.length > 0) {
+            if (result.created > 0) {
+                showToast(`Algunos alumnos se guardaron, pero hubo errores:\n${result.errors.join('\n')}`, 'info');
+            } else {
+                showError(`No se guardó ningún alumno.\n${result.errors.join('\n')}`);
+            }
+        } else {
+            showSuccess('Estudiantes guardados correctamente');
+        }
         previewSection.classList.add('hidden');
         uploadListsForm.reset();
     } catch (error) {
