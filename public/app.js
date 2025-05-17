@@ -4,15 +4,23 @@ const dashboard = document.getElementById('dashboard');
 const loginForm = document.getElementById('login-form');
 const profileBtn = document.getElementById('profile-btn');
 const createAuxBtn = document.getElementById('create-aux-btn');
+const uploadListsBtn = document.getElementById('upload-lists-btn');
 const logoutBtn = document.getElementById('logout-btn');
 const profileSection = document.getElementById('profile-section');
 const createAuxSection = document.getElementById('create-aux-section');
+const uploadListsSection = document.getElementById('upload-lists-section');
 const profileForm = document.getElementById('profile-form');
 const createAuxForm = document.getElementById('create-aux-form');
+const uploadListsForm = document.getElementById('upload-lists-form');
+const previewSection = document.getElementById('preview-section');
+const previewTables = document.getElementById('preview-tables');
+const saveStudentsBtn = document.getElementById('save-students-btn');
 
 // Estado de la aplicación
 let currentUser = null;
 let token = null;
+let excelProcessor = new ExcelProcessor();
+let processedStudents = [];
 
 // Funciones de utilidad
 const showError = (message) => {
@@ -76,8 +84,9 @@ const showDashboard = () => {
     // Mostrar/ocultar botones según el rol
     if (currentUser.role === 'admin') {
         createAuxBtn.classList.remove('hidden');
-    } else {
-        createAuxBtn.classList.add('hidden');
+        uploadListsBtn.classList.remove('hidden');
+    } else if (currentUser.role === 'auxiliar') {
+        uploadListsBtn.classList.remove('hidden');
     }
     
     // Cargar datos del perfil
@@ -111,11 +120,19 @@ loginForm.addEventListener('submit', (e) => {
 profileBtn.addEventListener('click', () => {
     profileSection.classList.remove('hidden');
     createAuxSection.classList.add('hidden');
+    uploadListsSection.classList.add('hidden');
 });
 
 createAuxBtn.addEventListener('click', () => {
     profileSection.classList.add('hidden');
     createAuxSection.classList.remove('hidden');
+    uploadListsSection.classList.add('hidden');
+});
+
+uploadListsBtn.addEventListener('click', () => {
+    profileSection.classList.add('hidden');
+    createAuxSection.classList.add('hidden');
+    uploadListsSection.classList.remove('hidden');
 });
 
 logoutBtn.addEventListener('click', logout);
@@ -172,6 +189,48 @@ createAuxForm.addEventListener('submit', async (e) => {
         
         showSuccess('Usuario auxiliar creado correctamente');
         createAuxForm.reset();
+    } catch (error) {
+        showError(error.message);
+    }
+});
+
+// Manejo de archivos Excel
+uploadListsForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const file = document.getElementById('excel-file').files[0];
+    
+    if (!file) {
+        showError('Por favor seleccione un archivo Excel');
+        return;
+    }
+    
+    try {
+        processedStudents = await excelProcessor.processFile(file);
+        previewTables.innerHTML = excelProcessor.generatePreviewHTML();
+        previewSection.classList.remove('hidden');
+    } catch (error) {
+        showError('Error al procesar el archivo Excel');
+    }
+});
+
+saveStudentsBtn.addEventListener('click', async () => {
+    try {
+        const response = await fetch('/api/users/students', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(processedStudents)
+        });
+        
+        if (!response.ok) {
+            throw new Error('Error al guardar los estudiantes');
+        }
+        
+        showSuccess('Estudiantes guardados correctamente');
+        previewSection.classList.add('hidden');
+        uploadListsForm.reset();
     } catch (error) {
         showError(error.message);
     }
