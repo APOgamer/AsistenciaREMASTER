@@ -69,7 +69,7 @@ router.post('/students', auth, async (req, res) => {
                 // Verificar si el estudiante ya existe
                 const existingStudent = await User.findOne({ 
                     $or: [
-                        { username: student.username },
+                        { username: student.email },
                         { numero: student.numero }
                     ]
                 });
@@ -81,16 +81,17 @@ router.post('/students', auth, async (req, res) => {
 
                 // Crear nuevo estudiante
                 const newStudent = new User({
-                    username: student.username,
+                    username: student.email,
                     password: student.password,
                     nombre: student.nombreCompleto,
+                    nombreCompleto: student.nombreCompleto,
                     email: student.email,
                     telefono: student.telefono,
                     numero: student.numero,
                     codigo: student.codigo,
                     grado: student.grado,
                     seccion: student.seccion,
-                    role: 'estudiante'
+                    role: 'alumno'
                 });
 
                 await newStudent.save();
@@ -153,7 +154,7 @@ router.patch('/:id', auth, async (req, res) => {
 });
 
 // Obtener todos los usuarios (solo admin)
-router.get('/', auth, isAdmin, async (req, res) => {
+router.get('/', auth, adminAuth, async (req, res) => {
     try {
         const users = await User.find({});
         res.json(users);

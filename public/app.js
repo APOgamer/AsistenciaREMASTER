@@ -80,15 +80,19 @@ const showLogin = () => {
 const showDashboard = () => {
     loginContainer.classList.add('hidden');
     dashboard.classList.remove('hidden');
-    
-    // Mostrar/ocultar botones según el rol
+
+    // Ocultar todos los botones primero
+    createAuxBtn.classList.add('hidden');
+    uploadListsBtn.classList.add('hidden');
+
+    // Mostrar según el rol
     if (currentUser.role === 'admin') {
         createAuxBtn.classList.remove('hidden');
         uploadListsBtn.classList.remove('hidden');
     } else if (currentUser.role === 'auxiliar') {
         uploadListsBtn.classList.remove('hidden');
     }
-    
+
     // Cargar datos del perfil
     loadProfile();
 };
@@ -209,7 +213,14 @@ uploadListsForm.addEventListener('submit', async (e) => {
         previewTables.innerHTML = excelProcessor.generatePreviewHTML();
         previewSection.classList.remove('hidden');
     } catch (error) {
-        showError('Error al procesar el archivo Excel');
+        // Mostrar errores de formato o vacíos
+        if (error && error.errors) {
+            previewSection.classList.add('hidden');
+            previewTables.innerHTML = '';
+            showError(error.errors.join('\n'));
+        } else {
+            showError('Error al procesar el archivo Excel');
+        }
     }
 });
 
@@ -240,5 +251,23 @@ saveStudentsBtn.addEventListener('click', async () => {
 const savedToken = localStorage.getItem('token');
 if (savedToken) {
     token = savedToken;
-    loadProfile().then(() => showDashboard());
+    fetch('/api/auth/profile', {
+        headers: { 'Authorization': `Bearer ${token}` }
+    })
+    .then(async response => {
+        if (!response.ok) {
+            // Token inválido o expirado
+            localStorage.removeItem('token');
+            showLogin();
+            return;
+        }
+        currentUser = await response.json();
+        showDashboard();
+    })
+    .catch(() => {
+        localStorage.removeItem('token');
+        showLogin();
+    });
+} else {
+    showLogin();
 } 
