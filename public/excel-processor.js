@@ -63,7 +63,7 @@ class ExcelProcessor {
                     nombreCompleto &&
                     nombreCompleto.toLowerCase() !== 'nombre completo' &&
                     email.toLowerCase() !== 'email' &&
-                    telefono.toLowerCase() !== 'teléfono'
+                    String(telefono).toLowerCase() !== 'teléfono'
                 ) {
                     this.students.push({
                         numero,

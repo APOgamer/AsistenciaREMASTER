@@ -744,6 +744,18 @@ async function cargarAsistenciaPorFecha(fecha) {
         attendanceDetailTitle.textContent = `Asistencia del ${fecha}`;
         attendanceDetailSection.classList.remove('hidden');
         saveAttendanceEditBtn.classList.add('hidden');
+
+        // Agregar botón de WhatsApp si no existe
+        let wspBtn = document.getElementById('send-wsp-report-btn');
+        if (!wspBtn) {
+            wspBtn = document.createElement('button');
+            wspBtn.id = 'send-wsp-report-btn';
+            wspBtn.className = 'success-btn';
+            wspBtn.textContent = 'Enviar reporte por WSP';
+            wspBtn.type = 'button'; // <-- Esto evita el submit
+            attendanceDetailSection.insertBefore(wspBtn, attendanceDetailTableContainer);
+        }
+        wspBtn.onclick = () => enviarReporteWsp(asistenciaEditada);
     } catch (err) {
         attendanceDetailTableContainer.innerHTML = '<div style="padding:10px; color:#e74c3c;">Error al cargar la asistencia.</div>';
     }
@@ -756,15 +768,17 @@ function renderAsistenciaDetalle(asistencia) {
         return;
     }
     let html = '<div style="overflow-x:auto;"><table class="attendance-table"><thead><tr>';
-    html += '<th>Nombre</th><th>Correo</th><th>Número</th><th>Sección</th><th>Grado</th><th>Hora Llegada</th><th>Estado</th><th>Justificar</th>';
+    html += '<th>Nombre</th><th>Correo</th><th>Número</th><th>Sección</th><th>Telefono</th><th>Grado</th><th>Hora Llegada</th><th>Estado</th><th>Justificar</th>';
     html += '</tr></thead><tbody>';
     asistencia.registros.forEach((reg, idx) => {
         const alumno = reg.alumno || {};
+        console.log('Alumno en registro', idx, alumno); // <-- Agrega esto
         html += `<tr>
             <td>${alumno.nombreCompleto || alumno.nombre || ''}</td>
             <td>${alumno.email || ''}</td>
             <td>${alumno.numero || ''}</td>
             <td>${alumno.seccion || ''}</td>
+            <td>${alumno.telefono || ''}</td>
             <td>${alumno.grado || ''}</td>
             <td><input type="time" value="${reg.horaLlegada || ''}" data-idx="${idx}" class="edit-hora"></td>
             <td>
@@ -915,4 +929,25 @@ saveAttendanceEditBtn.addEventListener('click', async () => {
     } catch (err) {
         showError(err.message);
     }
-}); 
+});
+
+async function enviarReporteWsp(asistencia) {
+    if (!asistencia || !asistencia.fecha) {
+        showError('No hay asistencia cargada.');
+        return;
+    }
+    try {
+        const res = await fetch(`/api/users/asistencias/${asistencia.fecha}/enviar-wsp`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (res.ok) {
+            showSuccess(data.message || 'Mensajes enviados.');
+        } else {
+            showError(data.error || 'Error al enviar mensajes.');
+        }
+    } catch (err) {
+        showError('Error de red al enviar mensajes.');
+    }
+}

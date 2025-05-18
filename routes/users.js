@@ -8,6 +8,7 @@ const Asistencia = require('../models/Asistencia');
 const mongoose = require('mongoose');
 const multer = require('multer');
 const path = require('path');
+const axios = require('axios');
 
 // Configuración de Multer para la subida de imágenes
 const upload = multer({
@@ -56,6 +57,68 @@ const staffAuth = async (req, res, next) => {
     }
     next();
 };
+
+router.post('/asistencias/:fecha/enviar-wsp', auth, staffAuth, async (req, res) => {
+    try {
+        const asistencia = await Asistencia.findOne({ fecha: req.params.fecha })
+            .populate('registros.alumno', 'nombre nombreCompleto telefono');
+        if (!asistencia) return res.status(404).json({ error: 'No se encontró asistencia' });
+
+        const faltaron = asistencia.registros.filter(r => r.estado === 'F');
+        if (faltaron.length === 0) return res.json({ message: 'No hay alumnos que hayan faltado.' });
+
+        const WSP_TOKEN = process.env.WSP_TOKEN;
+        const WSP_PHONE_ID = process.env.WSP_PHONE_ID;
+
+        let enviados = 0, errores = 0;
+        for (const r of faltaron) {
+            const alumno = r.alumno;
+            const telefono = alumno.telefono ? alumno.telefono.replace(/\D/g, '') : '';
+            if (!telefono) continue;
+
+            const nombre = alumno.nombreCompleto || alumno.nombre || '';
+
+            try {
+                await axios.post(
+                    `https://graph.facebook.com/v19.0/${WSP_PHONE_ID}/messages`,
+                    {
+                        messaging_product: "whatsapp",
+                        to: `51${telefono}`,
+                        type: "template",
+                        template: {
+                            name: "notificacion_falta", // 👈 Tu plantilla
+                            language: { code: "es_PE" },
+                            components: [
+                                {
+                                    type: "body",
+                                    parameters: [
+                                        { type: "text", text: nombre },
+                                        { type: "text", text: asistencia.fecha }
+                                    ]
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${WSP_TOKEN}`,
+                            'Content-Type': 'application/json'
+                        }
+                    }
+                );
+                enviados++;
+            } catch (err) {
+                console.error(`Error al enviar a ${telefono}`, err.message);
+                errores++;
+            }
+        }
+
+        res.json({ message: `Mensajes enviados: ${enviados}, errores: ${errores}` });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 
 // Crear usuario auxiliar (solo admin)
 router.post('/auxiliar', auth, adminAuth, async (req, res) => {
@@ -310,16 +373,22 @@ router.get('/asistencias', auth, staffAuth, async (req, res) => {
 });
 
 // Obtener una asistencia por fecha (admin y auxiliar)
-router.get('/asistencias/:fecha', auth, staffAuth, async (req, res) => {
+router.get('/asistencias/:fecha', auth, async (req, res) => {
     try {
-        const asistencia = await Asistencia.findOne({ fecha: req.params.fecha }).populate('registros.alumno', 'nombreCompleto nombre email numero seccion grado');
-        if (!asistencia) return res.status(404).json({ error: 'Asistencia no encontrada' });
+        const asistencia = await Asistencia.findOne({ fecha: req.params.fecha })
+            .populate('registros.alumno', 'nombre nombreCompleto email telefono numero grado seccion')
+            .lean(); // <- ahora correctamente colocado después de populate
+
+        if (!asistencia) {
+            return res.status(404).json({ error: 'No se encontró asistencia para esa fecha' });
+        }
+
+        console.log(asistencia.registros.map(r => r.alumno.telefono)); // debería mostrar los teléfonos ahora
         res.json(asistencia);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
-
 // Actualizar una asistencia por fecha
 router.patch('/asistencias/:fecha', auth, staffAuth, async (req, res) => {
     try {
