@@ -135,8 +135,46 @@
                 <div id="attendance-dates-list"></div>
                 <div id="attendance-detail-section" class="hidden">
                     <h3 id="attendance-detail-title"></h3>
+                    <div class="filters-container">
+                        <select id="estado-filter" class="filter-select">
+                            <option value="">Todos los estados</option>
+                            <option value="A">Asistió</option>
+                            <option value="T">Tardanza</option>
+                            <option value="F">Faltó</option>
+                        </select>
+                        <select id="seccion-filter" class="filter-select">
+                            <option value="">Todas las secciones</option>
+                            <option value="A">A</option>
+                            <option value="B">B</option>
+                            <option value="C">C</option>
+                            <option value="D">D</option>
+                            <option value="E">E</option>
+                            <option value="F">F</option>
+                        </select>
+                        <select id="turno-filter" class="filter-select">
+                            <option value="">Todos los turnos</option>
+                            <option value="mañana">Mañana</option>
+                            <option value="tarde">Tarde</option>
+                        </select>
+                    </div>
                     <div id="attendance-detail-table-container"></div>
-                    <button id="save-attendance-edit-btn" class="success-btn hidden">Guardar Cambios</button>
+                    <div class="action-buttons">
+                        <button id="save-attendance-edit-btn" class="success-btn hidden">Guardar Cambios</button>
+                        <button id="send-whatsapp-btn" class="whatsapp-btn">Enviar a WhatsApp</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- WhatsApp Modal -->
+            <div id="whatsapp-modal" class="modal hidden">
+                <div class="modal-content">
+                    <span class="close-button">&times;</span>
+                    <h3>Confirmar envío a WhatsApp</h3>
+                    <div id="whatsapp-preview"></div>
+                    <div class="modal-actions">
+                        <button id="confirm-whatsapp-btn" class="success-btn">Confirmar envío</button>
+                        <button id="cancel-whatsapp-btn" class="cancel-btn">Cancelar</button>
+                    </div>
                 </div>
             </div>
         </div>

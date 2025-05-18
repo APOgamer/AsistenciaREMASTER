@@ -52,6 +52,7 @@ let alumnosById = {};
 let horasConfig = null;
 let asistenciaActual = null;
 let asistenciaEditada = null;
+let currentAttendanceData = [];
 
 // Funciones de utilidad
 function showToast(message, type = 'info') {
@@ -915,4 +916,161 @@ saveAttendanceEditBtn.addEventListener('click', async () => {
     } catch (err) {
         showError(err.message);
     }
-}); 
+});
+
+// Función para filtrar la tabla de asistencias
+function filterAttendanceTable() {
+    const statusFilter = document.getElementById('statusFilter').value;
+    const sectionFilter = document.getElementById('sectionFilter').value;
+    const shiftFilter = document.getElementById('shiftFilter').value;
+    
+    const rows = document.querySelectorAll('#attendanceTable tbody tr');
+    
+    rows.forEach(row => {
+        const status = row.querySelector('select').value;
+        const section = row.querySelector('td:nth-child(4)').textContent;
+        const shift = row.querySelector('td:nth-child(5)').textContent;
+        
+        const statusMatch = statusFilter === 'all' || status === statusFilter;
+        const sectionMatch = sectionFilter === 'all' || section === sectionFilter;
+        const shiftMatch = shiftFilter === 'all' || shift === shiftFilter;
+        
+        row.style.display = statusMatch && sectionMatch && shiftMatch ? '' : 'none';
+    });
+}
+
+// Función para generar el mensaje de WhatsApp
+function generateWhatsAppMessage() {
+    const visibleRows = Array.from(document.querySelectorAll('#attendanceTable tbody tr'))
+        .filter(row => row.style.display !== 'none');
+    
+    if (visibleRows.length === 0) {
+        showToast('No hay datos para enviar', 'error');
+        return;
+    }
+
+    const date = document.getElementById('attendanceDate').value;
+    const formattedDate = new Date(date).toLocaleDateString('es-ES', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+
+    let message = `*Asistencia - ${formattedDate}*\n\n`;
+    
+    // Agrupar por sección
+    const sections = {};
+    visibleRows.forEach(row => {
+        const section = row.querySelector('td:nth-child(4)').textContent;
+        if (!sections[section]) {
+            sections[section] = [];
+        }
+        sections[section].push({
+            name: row.querySelector('td:nth-child(1)').textContent,
+            status: row.querySelector('select').value
+        });
+    });
+
+    // Generar mensaje por sección
+    Object.keys(sections).sort().forEach(section => {
+        message += `*Sección ${section}*\n`;
+        sections[section].forEach(student => {
+            const status = student.status === 'present' ? '✅' : 
+                          student.status === 'late' ? '⚠️' : '❌';
+            message += `${status} ${student.name}\n`;
+        });
+        message += '\n';
+    });
+
+    return message;
+}
+
+// Función para mostrar el modal de WhatsApp
+function showWhatsAppModal() {
+    const message = generateWhatsAppMessage();
+    if (!message) return;
+
+    document.getElementById('whatsapp-preview').textContent = message;
+    document.getElementById('whatsappModal').classList.add('show');
+}
+
+// Función para enviar a WhatsApp
+function sendToWhatsApp() {
+    const message = generateWhatsAppMessage();
+    if (!message) return;
+
+    const encodedMessage = encodeURIComponent(message);
+    window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
+    document.getElementById('whatsappModal').classList.remove('show');
+}
+
+// Event Listeners para los filtros
+document.getElementById('statusFilter').addEventListener('change', filterAttendanceTable);
+document.getElementById('sectionFilter').addEventListener('change', filterAttendanceTable);
+document.getElementById('shiftFilter').addEventListener('change', filterAttendanceTable);
+
+// Event Listeners para el modal de WhatsApp
+document.getElementById('whatsappBtn').addEventListener('click', showWhatsAppModal);
+document.getElementById('closeWhatsappModal').addEventListener('click', () => {
+    document.getElementById('whatsappModal').classList.remove('show');
+});
+document.getElementById('confirmWhatsappBtn').addEventListener('click', sendToWhatsApp);
+
+// Modificar la función loadAttendance para guardar los datos actuales
+async function loadAttendance(date) {
+    try {
+        const response = await fetch(`/api/users/asistencias/${date}`, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error('Error al cargar la asistencia');
+        }
+        
+        const data = await response.json();
+        currentAttendanceData = data; // Guardar los datos actuales
+        
+        // Renderizar la tabla con los datos
+        renderAttendanceTable(data);
+        
+        // Aplicar filtros iniciales
+        filterAttendanceTable();
+        
+    } catch (error) {
+        showToast(error.message, 'error');
+    }
+}
+
+// Modificar la función renderAttendanceTable para incluir los nuevos campos
+function renderAttendanceTable(data) {
+    const tbody = document.querySelector('#attendanceTable tbody');
+    tbody.innerHTML = '';
+    
+    data.forEach(record => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${record.alumno.nombreCompleto}</td>
+            <td>${record.alumno.email}</td>
+            <td>${record.alumno.numero}</td>
+            <td>${record.alumno.seccion}</td>
+            <td>${record.alumno.grado}</td>
+            <td>${record.hora}</td>
+            <td>
+                <select class="status-select" data-id="${record._id}">
+                    <option value="present" ${record.estado === 'present' ? 'selected' : ''}>Asistió</option>
+                    <option value="late" ${record.estado === 'late' ? 'selected' : ''}>Tardanza</option>
+                    <option value="absent" ${record.estado === 'absent' ? 'selected' : ''}>Faltó</option>
+                </select>
+            </td>
+            <td>
+                ${record.estado === 'absent' ? `
+                    <button class="justify-btn" data-id="${record._id}">Justificar</button>
+                ` : ''}
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+} 

@@ -47,23 +47,33 @@ class ExcelProcessor {
             hojasValidas++;
             const grado = parseInt(gradoMatch[0]);
             const seccion = seccionMatch[0];
+            
             const sheet = workbook.Sheets[sheetName];
             const data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
             let filasValidas = 0;
-            for (let i = 4; i < 34; i++) {
-                if (!data[i] || !data[i][0]) continue;
-                const numero = parseInt(data[i][0]);
-                const codigo = data[i][1] || '';
-                const nombreCompleto = data[i][2] || '';
-                const email = data[i][4] || '';
-                const password = data[i][5] || '';
-                const telefono = data[i][6] || '';
+            for (let i = 4; i < data.length; i++) {
+                if (!data[i] || data[i].length === 0) continue;
+
+                const numeroRaw = data[i][0];
+                const codigoRaw = data[i][1];
+                const nombreCompletoRaw = data[i][2];
+                const emailRaw = data[i][4];
+                const passwordRaw = data[i][5];
+                const telefonoRaw = data[i][6];
+
+                const numero = parseInt(numeroRaw);
+                
+                const codigo = codigoRaw != null ? String(codigoRaw).trim() : '';
+                const nombreCompleto = nombreCompletoRaw != null ? String(nombreCompletoRaw).trim() : '';
+                const email = emailRaw != null ? String(emailRaw).trim() : '';
+                const password = passwordRaw != null ? String(passwordRaw).trim() : '';
+                const telefono = telefonoRaw != null ? String(telefonoRaw).trim() : '';
+
                 if (
                     !isNaN(numero) &&
-                    nombreCompleto &&
+                    numeroRaw !== undefined && numeroRaw !== null &&
                     nombreCompleto.toLowerCase() !== 'nombre completo' &&
-                    email.toLowerCase() !== 'email' &&
-                    telefono.toLowerCase() !== 'teléfono'
+                    email.toLowerCase() !== 'email'
                 ) {
                     this.students.push({
                         numero,
