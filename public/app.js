@@ -37,7 +37,118 @@ const attendanceDetailSection = document.getElementById('attendance-detail-secti
 const attendanceDetailTitle = document.getElementById('attendance-detail-title');
 const attendanceDetailTableContainer = document.getElementById('attendance-detail-table-container');
 const saveAttendanceEditBtn = document.getElementById('save-attendance-edit-btn');
+let fechasSeleccionadas = []; // Para almacenar fechas seleccionadas
+// 3. Nuevas funciones para manejar selección de fechas
+function actualizarFechasSeleccionadas() {
+    fechasSeleccionadas = Array.from(document.querySelectorAll('.date-checkbox:checked'))
+        .map(checkbox => checkbox.dataset.fecha);
+    
+    // Actualizar el texto del botón de reporte semanal
+    const btnReporte = document.getElementById('send-weekly-report');
+    if (btnReporte) {
+        btnReporte.textContent = fechasSeleccionadas.length > 0 
+            ? `Enviar Reporte Semanal WSP (${fechasSeleccionadas.length} fechas)` 
+            : 'Enviar Reporte Semanal WSP';
+        btnReporte.disabled = fechasSeleccionadas.length === 0;
+    }
+}
 
+function seleccionarTodasLasFechas() {
+    document.querySelectorAll('.date-checkbox').forEach(checkbox => {
+        checkbox.checked = true;
+    });
+    actualizarFechasSeleccionadas();
+}
+
+function limpiarSeleccionFechas() {
+    document.querySelectorAll('.date-checkbox').forEach(checkbox => {
+        checkbox.checked = false;
+    });
+    actualizarFechasSeleccionadas();
+}
+
+// 4. Modal para confirmar envío de reporte semanal
+function mostrarModalReporteSemanal() {
+    if (fechasSeleccionadas.length === 0) {
+        showError('Debe seleccionar al menos una fecha para enviar el reporte.');
+        return;
+    }
+    
+    let modal = document.getElementById('reporte-semanal-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'reporte-semanal-modal';
+        modal.innerHTML = `
+            <div class="modal-bg"></div>
+            <div class="modal-content">
+                <h3>Confirmar Envío de Reporte Semanal</h3>
+                <div class="form-group">
+                    <p><strong>Fechas seleccionadas:</strong></p>
+                    <div id="fechas-seleccionadas-lista" style="background: #f8f9fa; padding: 10px; border-radius: 4px; margin: 10px 0;">
+                        <!-- Se llenará dinámicamente -->
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="titulo-reporte">Título del reporte (opcional):</label>
+                    <input type="text" id="titulo-reporte" placeholder="Ej: Reporte Semanal de Asistencias" style="width:100%; padding: 8px;">
+                </div>
+                <div style="margin-top:15px;">
+                    <button id="confirmar-reporte-semanal-btn" class="success-btn">Enviar Reporte</button>
+                    <button id="cancelar-reporte-semanal-btn" class="secondary-btn">Cancelar</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    // Llenar la lista de fechas seleccionadas
+    const listaFechas = document.getElementById('fechas-seleccionadas-lista');
+    listaFechas.innerHTML = fechasSeleccionadas.map(fecha => `<span style="display: inline-block; background: #007bff; color: white; padding: 4px 8px; margin: 2px; border-radius: 3px; font-size: 12px;">${fecha}</span>`).join('');
+    
+    modal.style.display = 'flex';
+    
+    document.getElementById('cancelar-reporte-semanal-btn').onclick = () => { modal.style.display = 'none'; };
+    document.getElementById('confirmar-reporte-semanal-btn').onclick = async () => {
+        const titulo = document.getElementById('titulo-reporte').value.trim();
+        await enviarReporteSemanal(fechasSeleccionadas, titulo);
+        modal.style.display = 'none';
+    };
+}
+
+// 5. Función para enviar reporte semanal
+async function enviarReporteSemanal(fechas, titulo = '') {
+    if (!Array.isArray(fechas) || fechas.length === 0) {
+        showError('No hay fechas seleccionadas.');
+        return;
+    }
+    
+    try {
+        showInfo('Enviando reporte semanal, por favor espere...');
+        
+        const res = await fetch('/api/users/asistencias/reporte-semanal/enviar-wsp', {
+            method: 'POST',
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 
+                fechas: fechas,
+                titulo: titulo || 'Reporte de Asistencias'
+            })
+        });
+        
+        const data = await res.json();
+        if (res.ok) {
+            showSuccess(data.message || 'Reporte semanal enviado correctamente.');
+            // Limpiar selección después del envío exitoso
+            limpiarSeleccionFechas();
+        } else {
+            showError(data.error || 'Error al enviar reporte semanal.');
+        }
+    } catch (err) {
+        showError('Error de red al enviar reporte semanal: ' + err.message);
+    }
+}
 // Estado de la aplicación
 let currentUser = null;
 let token = null;
@@ -721,13 +832,45 @@ async function cargarFechasAsistencias() {
             attendanceDatesList.innerHTML = '<div style="padding:10px; color:#888;">No hay asistencias registradas.</div>';
             return;
         }
-        attendanceDatesList.innerHTML = '<b>Fechas disponibles:</b><br>' + fechas.map(f => `<button class="date-btn" data-fecha="${f}">${f}</button>`).join(' ');
+        
+        // Crear HTML con checkboxes y botones
+        let html = '<div style="margin-bottom: 15px;"><b>Fechas disponibles:</b></div>';
+        html += '<div style="margin-bottom: 15px;">';
+        html += '<button id="select-all-dates" class="secondary-btn" style="margin-right: 10px;">Seleccionar Todo</button>';
+        html += '<button id="clear-all-dates" class="secondary-btn" style="margin-right: 10px;">Limpiar Selección</button>';
+        html += '<button id="send-weekly-report" class="success-btn" style="margin-left: 20px;">Enviar Reporte Semanal WSP</button>';
+        html += '</div>';
+        
+        html += '<div class="dates-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin-bottom: 15px;">';
+        fechas.forEach(f => {
+            html += `
+                <div class="date-item" style="display: flex; align-items: center; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <input type="checkbox" id="fecha-${f}" class="date-checkbox" data-fecha="${f}" style="margin-right: 8px;">
+                    <label for="fecha-${f}" style="flex: 1; cursor: pointer;">${f}</label>
+                    <button class="date-btn small-btn" data-fecha="${f}" style="margin-left: 8px; padding: 4px 8px; font-size: 12px;">Ver</button>
+                </div>
+            `;
+        });
+        html += '</div>';
+        
+        attendanceDatesList.innerHTML = html;
+        
+        // Agregar event listeners
         attendanceDatesList.querySelectorAll('.date-btn').forEach(btn => {
             btn.addEventListener('click', () => cargarAsistenciaPorFecha(btn.dataset.fecha));
         });
+        
+        attendanceDatesList.querySelectorAll('.date-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', actualizarFechasSeleccionadas);
+        });
+        
+        document.getElementById('select-all-dates').addEventListener('click', seleccionarTodasLasFechas);
+        document.getElementById('clear-all-dates').addEventListener('click', limpiarSeleccionFechas);
+        document.getElementById('send-weekly-report').addEventListener('click', mostrarModalReporteSemanal);
+        
     } catch (err) {
         attendanceDatesList.innerHTML = `<div style="padding:10px; color:#e74c3c;">${err.message || 'Error al cargar fechas de asistencias.'}</div>`;
-        showError(err.message || 'Error al cargar fechas de asistencias.'); // Mostrar toast con el error específico si está disponible
+        showError(err.message || 'Error al cargar fechas de asistencias.');
     }
 }
 
@@ -745,14 +888,15 @@ async function cargarAsistenciaPorFecha(fecha) {
         attendanceDetailSection.classList.remove('hidden');
         saveAttendanceEditBtn.classList.add('hidden');
 
-        // Agregar botón de WhatsApp si no existe
+        // Agregar botón de WhatsApp individual si no existe
         let wspBtn = document.getElementById('send-wsp-report-btn');
         if (!wspBtn) {
             wspBtn = document.createElement('button');
             wspBtn.id = 'send-wsp-report-btn';
             wspBtn.className = 'success-btn';
-            wspBtn.textContent = 'Enviar reporte por WSP';
-            wspBtn.type = 'button'; // <-- Esto evita el submit
+            wspBtn.textContent = 'Enviar reporte individual por WSP';
+            wspBtn.type = 'button';
+            wspBtn.style.marginRight = '10px';
             attendanceDetailSection.insertBefore(wspBtn, attendanceDetailTableContainer);
         }
         wspBtn.onclick = () => enviarReporteWsp(asistenciaEditada);

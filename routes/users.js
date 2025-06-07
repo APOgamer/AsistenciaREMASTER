@@ -417,5 +417,158 @@ router.post('/justificaciones/upload', auth, staffAuth, upload.single('file'), a
         res.status(400).json({ error: error.message });
     }
 });
+router.post('/asistencias/reporte-semanal/enviar-wsp', auth, staffAuth, async (req, res) => {
+    try {
+        const { fechas, titulo } = req.body;
+        
+        if (!Array.isArray(fechas) || fechas.length === 0) {
+            return res.status(400).json({ error: 'Debe proporcionar al menos una fecha' });
+        }
 
+        // Obtener todas las asistencias de las fechas seleccionadas
+        const asistencias = await Asistencia.find({ 
+            fecha: { $in: fechas } 
+        })
+        .populate('registros.alumno', 'nombre nombreCompleto telefono numero grado seccion')
+        .sort({ fecha: 1 });
+
+        if (asistencias.length === 0) {
+            return res.status(404).json({ error: 'No se encontraron asistencias para las fechas seleccionadas' });
+        }
+
+        // Consolidar faltas por alumno
+        const faltasPorAlumno = new Map();
+        
+        asistencias.forEach(asistencia => {
+            asistencia.registros.forEach(registro => {
+                if (registro.estado === 'F') {
+                    const alumnoId = registro.alumno._id.toString();
+                    const alumno = registro.alumno;
+                    
+                    if (!faltasPorAlumno.has(alumnoId)) {
+                        faltasPorAlumno.set(alumnoId, {
+                            alumno: {
+                                nombre: alumno.nombreCompleto || alumno.nombre || '',
+                                telefono: alumno.telefono,
+                                numero: alumno.numero,
+                                grado: alumno.grado,
+                                seccion: alumno.seccion
+                            },
+                            fechasFaltas: []
+                        });
+                    }
+                    
+                    faltasPorAlumno.get(alumnoId).fechasFaltas.push(asistencia.fecha);
+                }
+            });
+        });
+
+        if (faltasPorAlumno.size === 0) {
+            return res.json({ message: 'No hay alumnos con faltas en las fechas seleccionadas.' });
+        }
+
+        const WSP_TOKEN = process.env.WSP_TOKEN;
+        const WSP_PHONE_ID = process.env.WSP_PHONE_ID;
+
+        if (!WSP_TOKEN || !WSP_PHONE_ID) {
+            return res.status(500).json({ error: 'Configuración de WhatsApp no encontrada' });
+        }
+
+        let enviados = 0, errores = 0;
+        const erroresDetalle = [];
+
+        // Enviar mensaje consolidado a cada padre de familia
+        for (const [alumnoId, data] of faltasPorAlumno) {
+            const { alumno, fechasFaltas } = data;
+            const telefono = alumno.telefono ? alumno.telefono.replace(/\D/g, '') : '';
+            
+            if (!telefono) {
+                erroresDetalle.push(`${alumno.nombre}: No tiene teléfono registrado`);
+                errores++;
+                continue;
+            }
+
+            // Crear mensaje personalizado
+            const fechasFormateadas = fechasFaltas.join(', ');
+            const totalFaltas = fechasFaltas.length;
+            const mensajePersonalizado = `${titulo || 'Reporte de Asistencias'}
+
+Estimado padre/madre de familia:
+
+Le informamos sobre las inasistencias de su hijo/a *${alumno.nombre}*:
+
+📅 *Fechas con faltas:* ${fechasFormateadas}
+📊 *Total de faltas:* ${totalFaltas}
+👤 *Estudiante:* ${alumno.nombre}
+🎓 *Grado:* ${alumno.grado || 'No especificado'}
+📚 *Sección:* ${alumno.seccion || 'No especificado'}
+
+Por favor, coordine con la institución para justificar las inasistencias correspondientes.
+
+_Mensaje automático del sistema de asistencias_`;
+
+            try {
+                await axios.post(
+                    `https://graph.facebook.com/v19.0/${WSP_PHONE_ID}/messages`,
+                    {
+                        messaging_product: "whatsapp",
+                        to: `51${telefono}`,
+                        type: "text",
+                        text: {
+                            body: mensajePersonalizado
+                        }
+                    },
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${WSP_TOKEN}`,
+                            'Content-Type': 'application/json'
+                        }
+                    }
+                );
+                enviados++;
+                
+                // Pequeña pausa entre mensajes para evitar límites de rate
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+            } catch (err) {
+                const errorMsg = `${alumno.nombre} (${telefono}): ${err.response?.data?.error?.message || err.message}`;
+                console.error(`Error al enviar mensaje a ${telefono}:`, err.response?.data || err.message);
+                erroresDetalle.push(errorMsg);
+                errores++;
+            }
+        }
+
+        // Preparar respuesta detallada
+        let mensaje = `Reporte semanal procesado:\n`;
+        mensaje += `✅ Mensajes enviados: ${enviados}\n`;
+        mensaje += `❌ Errores: ${errores}\n`;
+        mensaje += `📊 Alumnos con faltas: ${faltasPorAlumno.size}\n`;
+        mensaje += `📅 Fechas procesadas: ${fechas.length} (${fechas.join(', ')})`;
+
+        const respuesta = { 
+            message: mensaje,
+            detalles: {
+                enviados,
+                errores,
+                totalAlumnosConFaltas: faltasPorAlumno.size,
+                fechasProcesadas: fechas.length,
+                fechas: fechas
+            }
+        };
+
+        // Agregar detalles de errores si los hay
+        if (erroresDetalle.length > 0) {
+            respuesta.erroresDetalle = erroresDetalle;
+        }
+
+        res.json(respuesta);
+
+    } catch (error) {
+        console.error('Error en reporte semanal:', error);
+        res.status(500).json({ 
+            error: 'Error interno del servidor al procesar reporte semanal',
+            detalle: error.message 
+        });
+    }
+});
 module.exports = router; 

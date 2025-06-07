@@ -343,3 +343,123 @@ input[type="file"]:hover {
     color: #333;
     text-align: center;
 } 
+/* Agregar estos estilos a tu archivo CSS */
+
+.dates-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.date-item {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: #fff;
+    transition: background-color 0.2s;
+}
+
+.date-item:hover {
+    background: #f8f9fa;
+}
+
+.date-item input[type="checkbox"] {
+    margin-right: 8px;
+    transform: scale(1.2);
+}
+
+.date-item label {
+    flex: 1;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.small-btn {
+    padding: 4px 8px;
+    font-size: 12px;
+    border: none;
+    border-radius: 3px;
+    background: #007bff;
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.small-btn:hover {
+    background: #0056b3;
+}
+
+.secondary-btn {
+    background: #6c757d;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-right: 5px;
+    transition: background-color 0.2s;
+}
+
+.secondary-btn:hover {
+    background: #545b62;
+}
+
+.secondary-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+.success-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+.modal-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+}
+
+.modal-content {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+#reporte-semanal-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1000;
+}
+
+#fechas-seleccionadas-lista span {
+    display: inline-block;
+    background: #007bff;
+    color: white;
+    padding: 4px 8px;
+    margin: 2px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: 500;
+}
