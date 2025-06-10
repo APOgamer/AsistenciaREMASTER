@@ -62,62 +62,211 @@ router.post('/asistencias/:fecha/enviar-wsp', auth, staffAuth, async (req, res) 
     try {
         const asistencia = await Asistencia.findOne({ fecha: req.params.fecha })
             .populate('registros.alumno', 'nombre nombreCompleto telefono');
-        if (!asistencia) return res.status(404).json({ error: 'No se encontró asistencia' });
+
+        if (!asistencia) {
+            return res.status(404).json({ error: 'No se encontró asistencia' });
+        }
 
         const faltaron = asistencia.registros.filter(r => r.estado === 'F');
-        if (faltaron.length === 0) return res.json({ message: 'No hay alumnos que hayan faltado.' });
+        if (faltaron.length === 0) {
+            return res.json({ message: 'No hay alumnos que hayan faltado.' });
+        }
 
         const WSP_TOKEN = process.env.WSP_TOKEN;
         const WSP_PHONE_ID = process.env.WSP_PHONE_ID;
 
+        if (!WSP_TOKEN || !WSP_PHONE_ID) {
+            return res.status(500).json({ error: 'Falta configuración de WhatsApp (token o phone ID)' });
+        }
+
         let enviados = 0, errores = 0;
+        const erroresDetalle = [];
+
         for (const r of faltaron) {
             const alumno = r.alumno;
             const telefono = alumno.telefono ? alumno.telefono.replace(/\D/g, '') : '';
-            if (!telefono) continue;
-
             const nombre = alumno.nombreCompleto || alumno.nombre || '';
 
-            try {
-                await axios.post(
-                    `https://graph.facebook.com/v19.0/${WSP_PHONE_ID}/messages`,
-                    {
-                        messaging_product: "whatsapp",
-                        to: `51${telefono}`,
-                        type: "template",
-                        template: {
-                            name: "notificacion_falta", // 👈 Tu plantilla
-                            language: { code: "es_PE" },
-                            components: [
-                                {
-                                    type: "body",
-                                    parameters: [
-                                        { type: "text", text: nombre },
-                                        { type: "text", text: asistencia.fecha }
-                                    ]
-                                }
+            if (!telefono || telefono.length < 9) {
+                console.warn(`Teléfono inválido para ${nombre}: "${alumno.telefono}"`);
+                errores++;
+                erroresDetalle.push(`${nombre}: Teléfono inválido`);
+                continue;
+            }
+
+            const payload = {
+                messaging_product: "whatsapp",
+                to: `51${telefono}`,
+                type: "template",
+                template: {
+                    name: "alerta_faltas",
+                    language: { code: "es" },
+                    components: [
+                        {
+                            type: "body",
+                            parameters: [
+                                { type: "text", text: nombre },
+                                { type: "text", text: asistencia.fecha }
                             ]
                         }
-                    },
+                    ]
+                }
+            };
+
+            try {
+                console.log(`Enviando mensaje a 51${telefono} (${nombre})`);
+                console.log('Payload:', JSON.stringify(payload, null, 2));
+
+                const response = await axios.post(
+                    `https://graph.facebook.com/v19.0/${WSP_PHONE_ID}/messages`,
+                    payload,
                     {
                         headers: {
-                            'Authorization': `Bearer ${WSP_TOKEN}`,
+                            Authorization: `Bearer ${WSP_TOKEN}`,
                             'Content-Type': 'application/json'
                         }
                     }
                 );
+
                 enviados++;
             } catch (err) {
-                console.error(`Error al enviar a ${telefono}`, err.message);
+                const errorMsg = err.response?.data?.error?.message || err.message;
+                console.error(`❌ Error al enviar a ${telefono}: ${errorMsg}`);
                 errores++;
+                erroresDetalle.push(`${nombre} (${telefono}): ${errorMsg}`);
             }
         }
 
-        res.json({ message: `Mensajes enviados: ${enviados}, errores: ${errores}` });
+        const mensajeFinal = `✅ Mensajes enviados: ${enviados}, ❌ Errores: ${errores}`;
+        const respuesta = { message: mensajeFinal };
+
+        if (erroresDetalle.length > 0) {
+            respuesta.erroresDetalle = erroresDetalle;
+        }
+
+        res.json(respuesta);
     } catch (error) {
+        console.error('Error en enviar-wsp:', error);
         res.status(500).json({ error: error.message });
     }
 });
+
+router.post('/reportes/semanal/wsp', auth, staffAuth, async (req, res) => {
+    try {
+        const { fechas } = req.body;
+
+        if (!Array.isArray(fechas) || fechas.length === 0) {
+            return res.status(400).json({ error: 'Debe proporcionar al menos una fecha' });
+        }
+
+        const asistencias = await Asistencia.find({ 
+            fecha: { $in: fechas } 
+        }).populate('registros.alumno', 'nombre nombreCompleto telefono');
+
+        if (!asistencias || asistencias.length === 0) {
+            return res.status(404).json({ error: 'No se encontraron asistencias para las fechas proporcionadas' });
+        }
+
+        // Consolidar faltas por alumno
+        const faltasPorAlumno = new Map();
+
+        asistencias.forEach(asistencia => {
+            asistencia.registros.forEach(r => {
+                if (r.estado === 'F' && r.alumno) {
+                    const alumnoId = r.alumno._id.toString();
+                    const alumno = r.alumno;
+                    if (!faltasPorAlumno.has(alumnoId)) {
+                        faltasPorAlumno.set(alumnoId, {
+                            alumno,
+                            fechas: []
+                        });
+                    }
+                    faltasPorAlumno.get(alumnoId).fechas.push(asistencia.fecha);
+                }
+            });
+        });
+
+        if (faltasPorAlumno.size === 0) {
+            return res.json({ message: 'No hay alumnos con faltas en las fechas proporcionadas.' });
+        }
+
+        const WSP_TOKEN = process.env.WSP_TOKEN;
+        const WSP_PHONE_ID = process.env.WSP_PHONE_ID;
+
+        if (!WSP_TOKEN || !WSP_PHONE_ID) {
+            return res.status(500).json({ error: 'Falta configuración de WhatsApp (token o phone ID)' });
+        }
+
+        let enviados = 0, errores = 0;
+        const erroresDetalle = [];
+
+        for (const { alumno, fechas } of faltasPorAlumno.values()) {
+            const telefono = alumno.telefono?.replace(/\D/g, '');
+            const nombre = alumno.nombreCompleto || alumno.nombre || '';
+            if (!telefono || telefono.length < 9) {
+                errores++;
+                erroresDetalle.push(`${nombre}: Teléfono inválido (${alumno.telefono})`);
+                continue;
+            }
+
+            const textoFechas = fechas.join(', ');
+            const mensaje = `Estimada/o ${nombre},
+
+Se han registrado tus inasistencias los días ${textoFechas} en el sistema de control de asistencias del colegio.
+
+Si se trata de un error o tienes una justificación, por favor comunícate con la coordinación lo antes posible.
+
+Atentamente,
+Coordinación Académica - Colegio Nuestra Señora de Lourdes`;
+
+          const payload = {
+  messaging_product: "whatsapp",
+  to: `51${telefono}`,
+  type: "template",
+  template: {
+    name: "alertafaltasvarias",
+    language: { code: "es" },
+    components: [
+      {
+        type: "body",
+        parameters: [
+          { type: "text", text: nombre },
+          { type: "text", text: textoFechas }
+        ]
+      }
+    ]
+  }
+};
+
+
+            try {
+                const wspRes = await axios.post(`https://graph.facebook.com/v19.0/${WSP_PHONE_ID}/messages`, payload, {
+  headers: {
+    Authorization: `Bearer ${WSP_TOKEN}`,
+    'Content-Type': 'application/json'
+  }
+});
+console.log('✅ WhatsApp response:', JSON.stringify(wspRes.data, null, 2));
+
+                enviados++;
+                await new Promise(resolve => setTimeout(resolve, 1000)); // pequeña pausa
+            } catch (err) {
+                errores++;
+                erroresDetalle.push(`${nombre} (${telefono}): ${err.response?.data?.error?.message || err.message}`);
+            }
+        }
+
+        res.json({
+            message: `✅ Mensajes enviados: ${enviados}, ❌ Errores: ${errores}`,
+            erroresDetalle
+        });
+
+    } catch (error) {
+        console.error('Error en reporte semanal:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 
 
 // Crear usuario auxiliar (solo admin)
@@ -418,6 +567,8 @@ router.post('/justificaciones/upload', auth, staffAuth, upload.single('file'), a
     }
 });
 router.post('/asistencias/reporte-semanal/enviar-wsp', auth, staffAuth, async (req, res) => {
+    console.log('📅 Fechas recibidas:', req.body.fechas);
+
     try {
         const { fechas, titulo } = req.body;
         

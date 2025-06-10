@@ -115,32 +115,32 @@ function mostrarModalReporteSemanal() {
     };
 }
 
-// 5. Función para enviar reporte semanal
+const API_BASE = 'http://localhost:3001/api/users';
+
 async function enviarReporteSemanal(fechas, titulo = '') {
     if (!Array.isArray(fechas) || fechas.length === 0) {
         showError('No hay fechas seleccionadas.');
         return;
     }
-    
+
     try {
         showInfo('Enviando reporte semanal, por favor espere...');
-        
-        const res = await fetch('/api/users/asistencias/reporte-semanal/enviar-wsp', {
+
+            const res = await fetch(`${API_BASE}/reportes/semanal/wsp`, {
             method: 'POST',
             headers: { 
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({ 
-                fechas: fechas,
+                fechas,
                 titulo: titulo || 'Reporte de Asistencias'
             })
         });
-        
+
         const data = await res.json();
         if (res.ok) {
             showSuccess(data.message || 'Reporte semanal enviado correctamente.');
-            // Limpiar selección después del envío exitoso
             limpiarSeleccionFechas();
         } else {
             showError(data.error || 'Error al enviar reporte semanal.');
@@ -149,6 +149,7 @@ async function enviarReporteSemanal(fechas, titulo = '') {
         showError('Error de red al enviar reporte semanal: ' + err.message);
     }
 }
+
 // Estado de la aplicación
 let currentUser = null;
 let token = null;
